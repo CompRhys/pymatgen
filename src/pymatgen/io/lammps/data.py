@@ -283,6 +283,47 @@ class LammpsData(MSONable):
     def __repr__(self) -> str:
         return self.get_str()
 
+    def as_dict(self) -> dict[str, Any]:
+        """Get MSONable dict representation."""
+        dct: dict[str, Any] = {
+            "@module": type(self).__module__,
+            "@class": type(self).__name__,
+            "box": self.box.as_dict(),
+            "masses": self.masses.to_json(orient="split"),
+            "atoms": self.atoms.to_json(orient="split"),
+            "velocities": self.velocities.to_json(orient="split") if self.velocities is not None else None,
+            "force_field": {k: v.to_json(orient="split") for k, v in self.force_field.items()}
+            if self.force_field
+            else None,
+            "topology": {k: v.to_json(orient="split") for k, v in self.topology.items()} if self.topology else None,
+            "atom_style": self.atom_style,
+        }
+        return dct
+
+    @classmethod
+    def from_dict(cls, dct: dict) -> Self:
+        """Reconstruct LammpsData from dict representation.
+
+        Args:
+            dct: Dict representation.
+
+        Returns:
+            LammpsData
+        """
+        return cls(
+            box=LammpsBox.from_dict(dct["box"]),
+            masses=pd.read_json(StringIO(dct["masses"]), orient="split"),
+            atoms=pd.read_json(StringIO(dct["atoms"]), orient="split"),
+            velocities=pd.read_json(StringIO(dct["velocities"]), orient="split") if dct.get("velocities") else None,
+            force_field={k: pd.read_json(StringIO(v), orient="split") for k, v in dct["force_field"].items()}
+            if dct.get("force_field")
+            else None,
+            topology={k: pd.read_json(StringIO(v), orient="split") for k, v in dct["topology"].items()}
+            if dct.get("topology")
+            else None,
+            atom_style=dct["atom_style"],
+        )
+
     @property
     def structure(self) -> Structure:
         """Exports a periodic structure object representing the simulation
@@ -1574,3 +1615,36 @@ class CombinedData(LammpsData):
         if self.topology:
             items["topology"] = {k: v.copy() for k, v in self.topology.items() if k in SECTION_KEYWORDS["topology"]}
         return LammpsData(**items)
+
+    def as_dict(self) -> dict[str, Any]:
+        """Get MSONable dict representation."""
+        return {
+            "@module": type(self).__module__,
+            "@class": type(self).__name__,
+            "list_of_molecules": [mol.as_dict() for mol in self._list_of_molecules],
+            "list_of_names": self._list_of_names,
+            "list_of_numbers": self._list_of_numbers,
+            "coordinates": self._coordinates.to_json(orient="split"),
+            "atom_style": self.atom_style,
+        }
+
+    @classmethod
+    def from_dict(cls, dct: dict) -> Self:
+        """Reconstruct CombinedData from dict representation.
+
+        Args:
+            dct: Dict representation.
+
+        Returns:
+            CombinedData
+        """
+        from monty.json import MontyDecoder
+
+        decoder = MontyDecoder()
+        return cls(
+            list_of_molecules=[decoder.process_decoded(mol) for mol in dct["list_of_molecules"]],
+            list_of_names=dct["list_of_names"],
+            list_of_numbers=dct["list_of_numbers"],
+            coordinates=pd.read_json(StringIO(dct["coordinates"]), orient="split"),
+            atom_style=dct["atom_style"],
+        )
