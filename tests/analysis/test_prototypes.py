@@ -12,6 +12,7 @@ import pytest
 from pymatgen.analysis.prototypes import (
     WYCKOFF_POSITION_RELAB_DICT,
     AflowPrototypeMatcher,
+    ProtostructureLabel,
     PrototypeDatabaseMatcher,
     _find_translations,
     count_crystal_dof,
@@ -29,6 +30,10 @@ from pymatgen.analysis.prototypes import (
     get_prototype_formula_from_composition,
     get_prototype_from_protostructure,
     get_random_structure_for_protostructure,
+    get_saps_prototypes_from_aflow_label,
+    parse_aflow_prototype_label,
+    parse_protostructure_label,
+    validate_wyckoff_split_branch,
 )
 from pymatgen.core.structure import Composition, Lattice, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
@@ -370,6 +375,54 @@ def test_get_anonymous_formula_from_prototype_formula(anonymous_formula: str, pr
 )
 def test_count_distinct_wyckoff_letters(protostructure_label, expected):
     assert count_distinct_wyckoff_letters(protostructure_label) == expected
+
+
+def test_parse_aflow_prototype_label():
+    parsed = parse_aflow_prototype_label("AB3C_cP5_221_a_c_b")
+
+    assert parsed.prototype_formula == "AB3C"
+    assert parsed.pearson_symbol == "cP5"
+    assert parsed.space_group == "221"
+    assert parsed.element_wyckoffs == ("a", "c", "b")
+    assert str(parsed) == "AB3C_cP5_221_a_c_b"
+
+    protostructure = parse_protostructure_label("AB3C_cP5_221_a_c_b:Ba-O-Ti")
+    assert isinstance(protostructure, ProtostructureLabel)
+    assert protostructure.aflow_label == parsed
+    assert protostructure.chemical_system == "Ba-O-Ti"
+    assert str(protostructure) == "AB3C_cP5_221_a_c_b:Ba-O-Ti"
+
+
+def test_get_saps_prototypes_from_aflow_label():
+    split_table = {
+        "221": [
+            {
+                "parent_space_group": 221,
+                "child_space_group": 123,
+                "relation_type": "t",
+                "index": 2,
+                "transformation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+                "origin_shift": [0, 0, 0],
+                "child_pearson_symbol": "tP10",
+                "splits": {
+                    "a": ["a", "b"],
+                    "b": ["c", "d"],
+                    "c": ["e", "f", "g"],
+                },
+            }
+        ]
+    }
+
+    validate_wyckoff_split_branch(split_table["221"][0])
+    labels = get_saps_prototypes_from_aflow_label(
+        "AB3C_cP5_221_a_c_b",
+        relation_types=("t",),
+        wyckoff_split_table=split_table,
+    )
+
+    assert labels
+    assert all("_123_" in label for label in labels)
+    assert "ABC6D2_tP10_123_a_b_efg_cd" in labels
 
 
 @pytest.mark.skipif(which("aflow") is None, reason="AFLOW CLI not installed")
