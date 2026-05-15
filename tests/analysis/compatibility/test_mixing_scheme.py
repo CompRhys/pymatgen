@@ -116,7 +116,7 @@ from pymatgen.analysis.structure_matcher import StructureMatcher
 from pymatgen.core.lattice import Lattice
 from pymatgen.core.structure import Structure
 from pymatgen.entries.computed_entries import CompositionEnergyAdjustment, ComputedEntry, ComputedStructureEntry
-from pymatgen.util.testing import TEST_FILES_DIR
+from tests.testing import TEST_FILES_DIR
 
 __author__ = "Ryan Kingsbury"
 __copyright__ = "Copyright 2019-2021, The Materials Project"
@@ -1568,6 +1568,60 @@ class TestMaterialsProjectDFTMixingSchemeArgs:
         mixing_scheme_no_compat.process_entries(entries, clean=True)
         for entry in entries:
             assert entry.correction == 0
+
+    def test_clean_multiple_adjustments(self, mixing_scheme_no_compat):
+        """Regression test: clean=True must remove ALL adjustments when an entry has more
+        than one. A list-mutation-while-iterating bug caused every other adjustment to be
+        skipped, leaving stale corrections when len(energy_adjustments) > 1.
+        """
+        lattice = Lattice.from_parameters(a=1, b=1, c=1, alpha=90, beta=90, gamma=60)
+        # Use the same valid Sn/Br chemical system as test_clean so the mixing scheme
+        # can build its phase diagram without error.
+        entries = [
+            ComputedStructureEntry(
+                Structure(lattice, ["Sn"], [[0, 0, 0]]),
+                0,
+                parameters={"run_type": "GGA"},
+                entry_id="multi-1",
+            ),
+            ComputedStructureEntry(
+                Structure(lattice, ["Br"], [[0, 0, 0]]),
+                0,
+                parameters={"run_type": "GGA"},
+                entry_id="multi-2",
+            ),
+            ComputedStructureEntry(
+                Structure(lattice, ["Sn", "Br", "Br"], [[0, 0, 0], [0.5, 0.5, 0.5], [1, 1, 1]]),
+                0,
+                parameters={"run_type": "GGA"},
+                entry_id="multi-3",
+            ),
+            ComputedStructureEntry(
+                Structure(
+                    lattice,
+                    ["Sn", "Br", "Br", "Br", "Br"],
+                    [[0, 0, 0], [0.2, 0.2, 0.2], [0.4, 0.4, 0.4], [0.7, 0.7, 0.7], [1, 1, 1]],
+                ),
+                0,
+                parameters={"run_type": "R2SCAN"},
+                entry_id="multi-4",
+            ),
+        ]
+
+        # Simulate entries that have already been through compat_1, which can append
+        # multiple adjustments per entry (e.g. oxide + anion + GGA/GGA+U corrections).
+        for entry in entries:
+            entry.energy_adjustments.append(CompositionEnergyAdjustment(-1.0, 1, name="adj-a"))
+            entry.energy_adjustments.append(CompositionEnergyAdjustment(-2.0, 1, name="adj-b"))
+
+        assert all(len(e.energy_adjustments) == 2 for e in entries)
+
+        mixing_scheme_no_compat.process_entries(entries, clean=True)
+
+        for entry in entries:
+            remaining = {ea.name for ea in entry.energy_adjustments}
+            assert "adj-a" not in remaining, f"stale adj-a left on {entry.entry_id}"
+            assert "adj-b" not in remaining, f"stale adj-b left on {entry.entry_id}"
 
     def test_no_run_type(self, mixing_scheme_no_compat):
         """
