@@ -6,11 +6,13 @@ import re
 from itertools import permutations, product
 from shutil import which
 
+import pandas as pd
 import pytest
 
 from pymatgen.analysis.prototypes import (
     WYCKOFF_POSITION_RELAB_DICT,
     AflowPrototypeMatcher,
+    PrototypeDatabaseMatcher,
     _find_translations,
     count_crystal_dof,
     count_crystal_sites,
@@ -30,8 +32,7 @@ from pymatgen.analysis.prototypes import (
 )
 from pymatgen.core.structure import Composition, Lattice, Structure
 from pymatgen.symmetry.analyzer import SpacegroupAnalyzer
-from pymatgen.util.testing import MatSciTest
-from tests.testing import TEST_FILES_DIR
+from pymatgen.util.testing import TEST_FILES_DIR, MatSciTest
 
 try:
     import pyxtal
@@ -41,9 +42,9 @@ except ImportError:
 TEST_DIR = f"{TEST_FILES_DIR}/analysis/prototypes"
 
 
-class TestAflowPrototypeMatcher(MatSciTest):
+class TestPrototypeDatabaseMatcher(MatSciTest):
     def test_prototype_matching(self):
-        af = AflowPrototypeMatcher()
+        af = PrototypeDatabaseMatcher()
 
         struct = self.get_structure("Sn")
         prototype = af.get_prototypes(struct)[0]
@@ -74,6 +75,33 @@ class TestAflowPrototypeMatcher(MatSciTest):
             "pearson": "cF12",
             "strukturbericht": "C1",
         }
+
+    def test_prototype_db_matching(self):
+        struct = self.get_structure("Sn")
+        prototype_db = pd.DataFrame([{"mineral": "tin", "distance": 0.1, "structure": struct}])
+        prototype = PrototypeDatabaseMatcher(prototype_db=prototype_db).get_prototypes(struct)[0]
+
+        assert prototype == {"type": "tin", "distance": 0.1, "structure": struct}
+
+    def test_prototype_db_matching_with_structure_dicts(self):
+        struct = self.get_structure("Sn")
+        prototype_db = pd.DataFrame([{"mineral": "tin", "distance": 0.1, "structure": struct.as_dict()}])
+        prototype = PrototypeDatabaseMatcher(prototype_db=prototype_db).get_prototypes(struct)[0]
+
+        assert prototype["type"] == "tin"
+        assert prototype["distance"] == 0.1
+        assert isinstance(prototype["structure"], Structure)
+
+    def test_deprecated_aflow_prototype_matcher(self):
+        with pytest.warns(DeprecationWarning, match="AflowPrototypeMatcher is deprecated"):
+            AflowPrototypeMatcher()
+
+    def test_deprecated_aflow_prototype_matcher_rejects_prototype_db(self):
+        with (
+            pytest.warns(DeprecationWarning, match="AflowPrototypeMatcher is deprecated"),
+            pytest.raises(TypeError, match="built-in AFLOW prototype database"),
+        ):
+            AflowPrototypeMatcher(prototype_db=[])
 
 
 PROTOSTRUCTURE_SET = [
