@@ -13,7 +13,7 @@ from __future__ import annotations
 import pandas as pd
 from monty.dev import deprecated
 
-from pymatgen.analysis._data import AFLOW_PROTOTYPE_LIBRARY
+from pymatgen.analysis.prototypes._data import AFLOW_PROTOTYPE_LIBRARY
 from pymatgen.core import Structure
 from pymatgen.core.structure_matcher import StructureMatcher
 from pymatgen.util.due import Doi, due

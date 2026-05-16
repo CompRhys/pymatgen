@@ -11,6 +11,7 @@ import pytest
 
 from pymatgen.analysis.prototypes import (
     WYCKOFF_POSITION_RELAB_DICT,
+    WYCKOFF_POSITION_SPLIT_DICT,
     AflowPrototypeMatcher,
     ProtostructureLabel,
     PrototypeDatabaseMatcher,
@@ -423,6 +424,28 @@ def test_get_saps_prototypes_from_aflow_label():
     assert labels
     assert all("_123_" in label for label in labels)
     assert "ABC6D2_tP10_123_a_b_efg_cd" in labels
+
+
+def test_generated_wyckoff_split_table_validates():
+    """Check that shipped maximal t-subgroup split branches are usable."""
+    branches = [branch for branches in WYCKOFF_POSITION_SPLIT_DICT.values() for branch in branches]
+
+    assert branches
+    assert {branch["relation_type"] for branch in branches} == {"t"}
+    for branch in branches:
+        validate_wyckoff_split_branch(branch)
+
+
+def test_get_saps_prototypes_from_generated_split_table():
+    labels = get_saps_prototypes_from_aflow_label("AB_mP4_11_e_e")
+
+    assert labels
+    assert all(parse_aflow_prototype_label(label) for label in labels)
+    assert all("_" in label for label in labels)
+
+
+def test_get_saps_prototypes_from_aflow_label_without_t_branches():
+    assert get_saps_prototypes_from_aflow_label("AB2_aP12_1_4a_8a") == []
 
 
 @pytest.mark.skipif(which("aflow") is None, reason="AFLOW CLI not installed")

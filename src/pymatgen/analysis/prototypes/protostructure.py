@@ -46,6 +46,10 @@ if TYPE_CHECKING:
     from pymatgen.core import Structure
 
 
+@due.dcite(
+    Doi("10.48550/arXiv.1802.07977"),
+    description="AFLOW-SYM: platform for the complete, automatic and self-consistent symmetry analysis of crystals.",
+)
 @dataclass(frozen=True)
 class AflowPrototypeLabel:
     """Parsed AFLOW prototype label."""
@@ -71,6 +75,14 @@ class AflowPrototypeLabel:
         return "_".join((self.prototype_formula, self.pearson_symbol, self.space_group, *self.element_wyckoffs))
 
 
+@due.dcite(
+    Doi("10.1126/sciadv.abn4117"),
+    description="Rapid discovery of stable materials by coordinate-free coarse graining.",
+)
+@due.dcite(
+    Doi("10.1103/PhysRevMaterials.8.103801"),
+    description="Identifying crystal structures beyond known prototypes from x-ray powder diffraction spectra.",
+)
 @dataclass(frozen=True)
 class ProtostructureLabel:
     """Parsed protostructure label with chemical system."""
@@ -195,7 +207,13 @@ def get_protostructure_label_from_aflow(
     element_wyckoffs = "_".join(element_wyckoffs)
     element_wyckoffs = canonicalize_element_wyckoffs(element_wyckoffs, spg_num)
 
-    protostructure_label = f"{prototype_form}_{pearson_symbol}_{spg_num}_{element_wyckoffs}:{chemsys}"
+    aflow_prototype_label = AflowPrototypeLabel(
+        prototype_formula=prototype_form,
+        pearson_symbol=pearson_symbol,
+        space_group=spg_num,
+        element_wyckoffs=tuple(element_wyckoffs.split("_")),
+    )
+    protostructure_label = str(ProtostructureLabel(aflow_label=aflow_prototype_label, chemical_system=chemsys))
 
     observed_formula = Composition(element_dict).reduced_formula
     expected_formula = struct.composition.reduced_formula

@@ -11,7 +11,7 @@ Run with:
 
     uv run dev_scripts/generate_wyckoff_split_table.py
 
-This regenerates `src/pymatgen/analysis/prototypes/wyckoff-position-splits.json.gz`
+This regenerates `src/pymatgen/analysis/prototypes/assets/wyckoff-position-splits.json.gz`
 from PyXtal's subgroup and Wyckoff-splitting tables. Use `--space-groups` to
 limit parent groups and `--max-index` to restrict subgroup branches. The PEP
 723 dependency block above pins the data-generation dependencies.

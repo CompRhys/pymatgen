@@ -40,7 +40,7 @@ from pymatgen.analysis.prototypes.formula import (
     get_prototype_formula_from_composition,
     get_prototype_formula_from_counts,
 )
-from pymatgen.analysis.prototypes.matcher import AflowPrototypeMatcher
+from pymatgen.analysis.prototypes.matcher import AflowPrototypeMatcher, PrototypeDatabaseMatcher
 from pymatgen.analysis.prototypes.protostructure import (
     AflowPrototypeLabel,
     ProtostructureLabel,
@@ -101,6 +101,7 @@ __all__ = [
     "AflowPrototypeLabel",
     "AflowPrototypeMatcher",
     "ProtostructureLabel",
+    "PrototypeDatabaseMatcher",
     "WyckoffSplitBranch",
     "_count_from_dict",
     "_find_translations",
